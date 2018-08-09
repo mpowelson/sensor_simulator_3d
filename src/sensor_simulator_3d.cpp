@@ -1,5 +1,6 @@
 ﻿#include <urdf/model.h>
 #include "ros/ros.h"
+#include "ros/package.h"
 
 #include "gl_depth_sim/sim_depth_camera.h"
 #include "gl_depth_sim/mesh_loader.h"
@@ -30,7 +31,21 @@ static Eigen::Affine3d lookat(const Eigen::Vector3d& origin, const Eigen::Vector
   return p;
 }
 
-
+static std::string getfullpath(const std::string relativePath)
+{
+  std::string fullPath;
+if (relativePath.substr(0,10) == "package://")
+{
+  unsigned last = relativePath.substr(10,relativePath.back()).find("/");
+  std::string pkgPath = relativePath.substr (10,last);
+  fullPath = ros::package::getPath(pkgPath) + relativePath.substr(10+last,relativePath.back());
+  return fullPath;
+}
+else
+{
+  return "Error: converts 'package://' to full package path";
+}
+}
 
 
 
@@ -56,13 +71,7 @@ int main(int argc, char** argv){
   int width = pnh.param<int>("width", 640);
   int height = pnh.param<int>("height", 480);
 
-  auto mesh_ptr = gl_depth_sim::loadMesh(mesh_path);
 
-  if (!mesh_ptr)
-  {
-    ROS_ERROR_STREAM("Unable to load mesh from path: " << mesh_path);
-    return 1;
-  }
 
   gl_depth_sim::CameraProperties props;
   props.width = width;
@@ -76,12 +85,67 @@ int main(int argc, char** argv){
 
   // Create the simulation
   gl_depth_sim::SimDepthCamera sim (props);
-  auto mesh_loc = Eigen::Affine3d::Identity();
-  mesh_loc.matrix() << 1, 0, 0, 0,             // Replace this with info from the URDF
-                       0, 1, 0, 0,
-                       0, 0, 1, 0.77153,
-                       0, 0, 0, 1;
-  sim.add(*mesh_ptr, mesh_loc);
+
+  // ---------------- Parse URDF ----------------------
+
+  std::string urdf_file = "/home/mpowelson/workspaces/trajopt/src/franka_config/urdf/model.urdf";
+  urdf::Model model;
+  if (!model.initFile(urdf_file)){
+    ROS_ERROR("Failed to parse urdf file");
+    return -1;
+  }
+  ROS_INFO("Successfully parsed urdf file");
+
+  auto linkMap = model.links_;  //Returns a map of links
+  std::cout << "Links Found:" << std::endl;
+  std::map<std::string, urdf::LinkSharedPtr>::iterator it2 = linkMap.begin();
+
+  for(it2; it2!=linkMap.end(); it2++)
+  {
+    std::cout<<it2->first<<" :: "<<it2->second<< "   ";
+    auto linkPtr =  model.getLink(it2->first);
+
+    if ((linkPtr && linkPtr->visual && linkPtr->visual->geometry) && (linkPtr && linkPtr->visual))
+    {
+      auto tmp =  boost::dynamic_pointer_cast<const urdf::Mesh>(linkPtr->visual->geometry);
+      auto tmp2 = linkPtr->visual;
+      if (tmp && tmp2){
+
+
+        //Get filepath and link name
+        std::string filepath =  tmp->filename;
+        std::string linkName = linkPtr->name;        // This is also the name of the tf associated with this link
+
+        std::cout << filepath  << linkPtr->parent_joint->name;
+
+        std::cout<< getfullpath(filepath);
+
+        if (filepath.substr(filepath.size()-3) == "STL" ||  filepath.substr(filepath.size()-3) == "stl" ){
+          //          ros::package::getPath("franka")
+          auto mesh_ptr = gl_depth_sim::loadMesh(getfullpath(filepath));
+          if (!mesh_ptr)
+          {
+            ROS_ERROR_STREAM("Unable to load mesh from path: " << filepath);
+            return 1;
+          }
+          else{
+            ROS_INFO("Added to Scene");
+          }
+          auto mesh_loc = Eigen::Affine3d::Identity();
+          mesh_loc.matrix() << 1, 0, 0, 0,             // Replace this with info from the URDF
+              0, 1, 0, 0,
+              0, 0, 1, 0.77153,
+              0, 0, 0, 1;
+          sim.add(*mesh_ptr, mesh_loc);
+        }
+
+      }}
+    std::cout << std::endl;
+  }
+
+  ros::Duration(5).sleep();
+
+
 
 
   // State for FPS monitoring
@@ -113,7 +177,7 @@ int main(int argc, char** argv){
     tf::transformTFToEigen(transform2, pose);
 
 
-//    Eigen::Vector3d camera_pos (radius * cos(dt),
+    //    Eigen::Vector3d camera_pos (radius * cos(dt),
 //                                radius * sin(dt),
 //                                z);
 //    Eigen::Vector3d look_at (0,0,0);
