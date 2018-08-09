@@ -60,7 +60,9 @@ int main(int argc, char** argv){
   tf::TransformListener listener;
 
 
-  std::string mesh_path = "/home/mpowelson/workspaces/trajopt/src/franka_config/meshes/workcell.STL";
+//  std::string mesh_path = "/home/mpowelson/workspaces/trajopt/src/franka_config/meshes/workcell.STL";
+//  std::string urdf_file = "/home/mpowelson/workspaces/trajopt/src/franka_config/urdf/model2.urdf";
+  std::string urdf_file = pnh.param<std::string>("urdf_path" , ros::package::getPath("franka_config") + "/urdf/model2.urdf" );
   std::string base_frame = pnh.param<std::string>("base_frame", "world");
   std::string camera_frame = pnh.param<std::string>("camera_frame", "camera");
 
@@ -87,8 +89,6 @@ int main(int argc, char** argv){
   gl_depth_sim::SimDepthCamera sim (props);
 
   // ---------------- Parse URDF ----------------------
-
-  std::string urdf_file = "/home/mpowelson/workspaces/trajopt/src/franka_config/urdf/model.urdf";
   urdf::Model model;
   if (!model.initFile(urdf_file)){
     ROS_ERROR("Failed to parse urdf file");
@@ -105,6 +105,7 @@ int main(int argc, char** argv){
     std::cout<<it2->first<<" :: "<<it2->second<< "   ";
     auto linkPtr =  model.getLink(it2->first);
 
+    // Exclude links with no geometry
     if ((linkPtr && linkPtr->visual && linkPtr->visual->geometry) && (linkPtr && linkPtr->visual))
     {
       auto tmp =  boost::dynamic_pointer_cast<const urdf::Mesh>(linkPtr->visual->geometry);
@@ -116,26 +117,30 @@ int main(int argc, char** argv){
         std::string filepath =  tmp->filename;
         std::string linkName = linkPtr->name;        // This is also the name of the tf associated with this link
 
-        std::cout << filepath  << linkPtr->parent_joint->name;
+//        std::cout << filepath  << linkPtr->parent_joint->name;
+//        std::cout<< getfullpath(filepath);
 
-        std::cout<< getfullpath(filepath);
 
+        //Exclude unsupported filetypes
         if (filepath.substr(filepath.size()-3) == "STL" ||  filepath.substr(filepath.size()-3) == "stl" ){
-          //          ros::package::getPath("franka")
           auto mesh_ptr = gl_depth_sim::loadMesh(getfullpath(filepath));
           if (!mesh_ptr)
           {
             ROS_ERROR_STREAM("Unable to load mesh from path: " << filepath);
+            ROS_ERROR_STREAM("Note: Only stl or STL are supported at this time");
             return 1;
           }
           else{
-            ROS_INFO("Added to Scene");
+            ROS_INFO_STREAM("Loading mesh from: " << getfullpath(filepath));;
           }
           auto mesh_loc = Eigen::Affine3d::Identity();
-          mesh_loc.matrix() << 1, 0, 0, 0,             // Replace this with info from the URDF
-              0, 1, 0, 0,
-              0, 0, 1, 0.77153,
-              0, 0, 0, 1;
+          tf::StampedTransform meshTransform;
+          listener.lookupTransform("/world", "/" + linkName, ros::Time(0), meshTransform);
+          tf::transformTFToEigen(meshTransform,mesh_loc);
+//          mesh_loc.matrix() << 1, 0, 0, 0,             // Replace this with info from the URDF
+//              0, 1, 0, 0,
+//              0, 0, 1, 0.77153,
+//              0, 0, 0, 1;
           sim.add(*mesh_ptr, mesh_loc);
         }
 
@@ -143,7 +148,7 @@ int main(int argc, char** argv){
     std::cout << std::endl;
   }
 
-  ros::Duration(5).sleep();
+//  ros::Duration(5).sleep();
 
 
 
@@ -168,7 +173,7 @@ int main(int argc, char** argv){
       listener.lookupTransform("/world", "/panda_link8", ros::Time(0), transform2);
     }
     catch (tf::TransformException &ex) {
-      ROS_ERROR("%s",ex.what());
+//      ROS_ERROR("%s",ex.what());
       continue;
     }
     auto test =  transform2.getOrigin();
@@ -177,11 +182,6 @@ int main(int argc, char** argv){
     tf::transformTFToEigen(transform2, pose);
 
 
-    //    Eigen::Vector3d camera_pos (radius * cos(dt),
-//                                radius * sin(dt),
-//                                z);
-//    Eigen::Vector3d look_at (0,0,0);
-//    const auto pose = lookat(camera_pos, look_at, Eigen::Vector3d(0,0,1));
 
     const auto depth_img = sim.render(pose);
 

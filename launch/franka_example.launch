@@ -1,5 +1,6 @@
 <launch>
     <arg name="rviz" default="true"/>
+    <arg name="camera_on_EE" default="true"/>
 
     <!-- Load Robot Model    -->
     <param name="robot_description"  command="$(find xacro)/xacro --inorder $(find franka_config)/urdf/robot.urdf.xacro"/>
@@ -10,6 +11,11 @@
 
     <!-- Launch robot state publisher -->
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+
+    <!-- Insert transforms for cameras -->
+    <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster"
+        args="0 0 0 0 0 0 panda_link8 camera2  100" />
+
 
     <!-- Launch visualization -->
     <node if="$(arg rviz)" pkg="rviz" type="rviz" name="ceccrebot_viz"
