@@ -56,7 +56,7 @@ int main(int argc, char** argv){
   // Setup ROS interfaces
   ros::Publisher cloud_pub = nh.advertise<pcl::PointCloud<pcl::PointXYZ>>("cloud", 1, true);
 
-  tf::TransformBroadcaster broadcaster;
+//  tf::TransformBroadcaster broadcaster;
   tf::TransformListener listener;
 
 
@@ -148,16 +148,9 @@ int main(int argc, char** argv){
     std::cout << std::endl;
   }
 
-//  ros::Duration(5).sleep();
 
 
-
-
-  // State for FPS monitoring
-  long frame_counter = 0;
-  // In the main (rendering) thread, begin orbiting...
   const auto start = std::chrono::steady_clock::now();
-
   pcl::PointCloud<pcl::PointXYZ> cloud;
   cloud.header.frame_id = camera_frame;
 
@@ -166,42 +159,24 @@ int main(int argc, char** argv){
     double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
 
-
-    // Get EE tranform
-    tf::StampedTransform transform2;
+    //Step 1: Get camera tranform and render point cloud
+    tf::StampedTransform camera_transform;
     try{
-      listener.lookupTransform("/world", "/panda_link8", ros::Time(0), transform2);
+      listener.lookupTransform("/world", "/camera", ros::Time(0), camera_transform);
     }
     catch (tf::TransformException &ex) {
 //      ROS_ERROR("%s",ex.what());
       continue;
     }
-    auto test =  transform2.getOrigin();
-    //    std::cout <<test << std::endl;
     auto pose = Eigen::Affine3d::Identity();
-    tf::transformTFToEigen(transform2, pose);
-
-
-
+    tf::transformTFToEigen(camera_transform, pose);
     const auto depth_img = sim.render(pose);
 
-    frame_counter++;
-
-    if (frame_counter % 100 == 0)
-    {
-      std::cout << "FPS: " << frame_counter / dt << "\n";
-    }
-
-    // Step 1: Publish the cloud
+    // Step 2: Publish the cloud
     gl_depth_sim::toPointCloudXYZ(props, depth_img, cloud);
     pcl_conversions::toPCL(ros::Time::now(), cloud.header.stamp);
     cloud_pub.publish(cloud);
 
-    // Step 2: Publish the TF so we can see it in RViz
-    tf::Transform transform;
-    tf::transformEigenToTF(pose, transform);
-    tf::StampedTransform stamped_transform (transform, ros::Time::now(), base_frame, camera_frame);
-    broadcaster.sendTransform(stamped_transform);
 
     ros::spinOnce();
   }

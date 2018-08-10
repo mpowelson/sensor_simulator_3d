@@ -3,7 +3,7 @@
     <arg name="camera_on_EE" default="true"/>
 
     <!-- Load Robot Model    -->
-    <param name="robot_description"  command="$(find xacro)/xacro --inorder $(find franka_config)/urdf/robot.urdf.xacro"/>
+    <param name="robot_description"  command="$(find xacro)/xacro --inorder $(find franka_config)/urdf/model2.urdf"/>
 
     <!-- Launch GUI to drive joints   -->
     <param name="use_gui" value="true"/>
@@ -12,13 +12,12 @@
     <!-- Launch robot state publisher -->
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
 
-    <!-- Insert transforms for cameras -->
-    <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster"
-        args="0 0 0 0 0 0 panda_link8 camera2  100" />
-
+    <!-- Insert transforms for cameras x y z yaw(z) pitch(y) roll(x)-->
+    <node pkg="tf" type="static_transform_publisher" name="camera_tf_broadcaster"
+        args="0.75 0.5 .75 2.7 0 -2.4 base_link camera 10" />
 
     <!-- Launch visualization -->
-    <node if="$(arg rviz)" pkg="rviz" type="rviz" name="ceccrebot_viz"
+    <node if="$(arg rviz)" pkg="rviz" type="rviz" name="demo3_viz"
       args="-d $(find franka_config)/launch/franka.rviz" />
 
 

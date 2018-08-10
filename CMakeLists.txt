@@ -139,6 +139,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(sensor_simulator_3d src/sensor_simulator_3d.cpp)
 add_executable(urdf_parser src/urdf_parser.cpp)
+add_executable(pick_target_finder src/pick_target_finder.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -150,15 +151,9 @@ add_executable(urdf_parser src/urdf_parser.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(
-    sensor_simulator_3d
-   ${catkin_LIBRARIES}
- )
-target_link_libraries(
-    urdf_parser
-   ${catkin_LIBRARIES}
- )
-
+target_link_libraries(sensor_simulator_3d ${catkin_LIBRARIES})
+target_link_libraries(urdf_parser ${catkin_LIBRARIES})
+target_link_libraries(pick_target_finder ${catkin_LIBRARIES})
 #############
 ## Install ##
 #############
